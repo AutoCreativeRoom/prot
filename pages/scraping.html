@@ -86,11 +86,12 @@
         border-bottom: none;
       }
       .buttons {
-        width: 150px;
         display: flex;
         gap: 10px;
+        flex-basis: 0;
       }
       .btn {
+        margin-top: 0px;
         padding: 4px 8px;
         border: none;
         border-radius: 5px;
@@ -103,6 +104,10 @@
       }
       .btn-crm {
         background: #28a745;
+        color: white;
+      }
+      .btn-save {
+        background: #f59709;
         color: white;
       }
     </style>
@@ -170,6 +175,12 @@
 
       function excluirItem(index) {
         let lista = carregarDoLocalStorage();
+        const item = lista[index];
+
+        if (!item) return;
+
+        enviarParaWebhook(item.place_id, "rejeitado");
+
         lista.splice(index, 1);
         salvarNoLocalStorage(lista);
         renderizarLista();
@@ -181,22 +192,49 @@
 
         if (!item) return;
 
-        console.log("Enviando para CRM:", item);
+        enviarParaWebhook(item.place_id, "crm");
 
-        fetch("https://seu-crm.com/api/enviar", {
-          // Substituir pelo endpoint correto
+        // Remover item visualmente após enviar para CRM
+        lista.splice(index, 1);
+        salvarNoLocalStorage(lista);
+        renderizarLista();
+
+        alert("Enviado ao CRM com sucesso!");
+      }
+
+      function salvarItem(index) {
+        const lista = carregarDoLocalStorage();
+        const item = lista[index];
+
+        if (!item) return;
+
+        enviarParaWebhook(item.place_id, "salvo");
+
+        // Remover item visualmente após salvar
+        lista.splice(index, 1);
+        salvarNoLocalStorage(lista);
+        renderizarLista();
+
+        alert("Item salvo com sucesso!");
+      }
+
+      function enviarParaWebhook(placeId, status) {
+        const data = {
+          place_id: placeId,
+          status: status,
+        };
+
+        fetch("https://webhook.ediogoncalvesdev.com.br/webhook/modify_status", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(item),
+          body: JSON.stringify(data),
         })
           .then((response) => response.json())
-          .then((data) => {
-            console.log("Resposta do CRM:", data);
-            alert("Enviado ao CRM com sucesso!");
+          .then((responseData) => {
+            console.log("Status atualizado:", responseData);
           })
           .catch((error) => {
-            console.error("Erro ao enviar para CRM:", error);
-            alert("Erro ao enviar ao CRM: " + error);
+            console.error("Erro ao enviar para o webhook:", error);
           });
       }
 
@@ -209,31 +247,29 @@
           const listItem = document.createElement("div");
           listItem.classList.add("list-item");
 
-          listItem.innerHTML = `
-                <div class="wrapper">
-                    <strong>${item.title}</strong>
-                    <span>Nota: ${item.rating} (${
-            item.reviews
-          } avaliações)</span>
-                    <span>Endereço: ${item.address}</span>
-                    <span>Telefone: ${item.phone ? item.phone : "N/A"}</span>
-                    ${
-                      item.website
-                        ? `<a href="${item.website}" target="_blank">Site</a>`
-                        : "Sem site"
-                    }
-                </div>
-                    <div class="buttons">
-                        <button class="btn btn-delete" onclick="excluirItem(${index})">Excluir</button>
-                        <button class="btn btn-crm" onclick="enviarParaCRM(${index})">Enviar CRM</button>
-                    </div>
-                `;
+          listItem.innerHTML = ` 
+            <div class="wrapper">
+              <strong>${item.title}</strong>
+              <span>Nota: ${item.rating} (${item.reviews} avaliações)</span>
+              <span>Endereço: ${item.address}</span>
+              <span>Telefone: ${item.phone ? item.phone : "N/A"}</span>
+             ${
+               item.website && item.website !== "null"
+                 ? `<a href="${item.website}" target="_blank">Site</a>`
+                 : "SEM SITE"
+             }
+            </div>
+            <div class="buttons">
+              <button class="btn btn-delete" onclick="excluirItem(${index})">Excluir</button>
+              <button class="btn btn-crm" onclick="enviarParaCRM(${index})">Enviar CRM</button>
+              <button class="btn btn-save" onclick="salvarItem(${index})">Salvar</button>
+            </div>
+          `;
 
           resultsList.appendChild(listItem);
         });
       }
 
-      // Carregar lista ao abrir a página
       document.addEventListener("DOMContentLoaded", renderizarLista);
     </script>
   </body>
